@@ -68,3 +68,20 @@ services:
     environment:
       SUPERSET_SECRET_KEY: "${SUPERSET_SECRET_KEY}"
       # SUPERSET_CONFIG_PATH: /superset/superset_config.py
+
+  dbt:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: nba-dbt
+    command: tail -f /dev/null
+    working_dir: /home/airflow/dbt
+    volumes:
+      - ./dbt:/home/airflow/dbt
+    environment:
+      DBT_PROFILES_DIR: /home/airflow/dbt
+      PGPASSWORD: airflow
+    depends_on:
+      postgres:
+        condition: service_healthy
+

@@ -1,0 +1,13 @@
+nba_stats_dbt:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: postgres
+      user: airflow
+      password: airflow
+      port: 5432
+      dbname: airflow
+      schema: nba_stats
+      threads: 4
+
