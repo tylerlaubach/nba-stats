@@ -1,0 +1,26 @@
+version: 2
+
+models:
+  - name: stg_gamelog
+    description: Game log info per team-game
+    columns:
+      - name: game_id
+        tests: [not_null]
+      - name: team_id
+        tests: [not_null]
+
+  - name: stg_boxscore_advanced_team
+    description: Advanced team metrics per game
+    columns:
+      - name: game_id
+        tests: [not_null]
+      - name: team_id
+        tests: [not_null]
+
+  - name: stg_boxscore_advanced_player
+    description: Advanced player metrics per game
+    columns:
+      - name: game_id
+        tests: [not_null]
+      - name: person_id
+        tests: [not_null]

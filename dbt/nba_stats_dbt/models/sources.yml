@@ -1,0 +1,9 @@
+version: 2
+
+sources:
+  - name: nba_stats
+    schema: nba_stats
+    tables:
+      - name: gamelog
+      - name: boxscore_advanced_team
+      - name: boxscore_advanced_player
