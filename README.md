@@ -1,2 +1,10 @@
 # nba-stats
-Tracking the performance of NBA teams game-by-game. Utilizes the nba_api, Airflow, dbt, and Apache Superset.
+
+End-to-end data pipeline for collecting, transforming, and analyzing NBA game data.
+
+## 🏗️ Tech Stack
+- **Data Ingestion**: `nba_api`, Python
+- **Storage**: PostgreSQL (Dockerized)
+- **Transformation**: dbt
+- **Orchestration**: Apache Airflow
+- **Viz**: Apache Superset

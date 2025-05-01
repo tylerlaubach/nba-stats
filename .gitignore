@@ -2,3 +2,4 @@
 superset/superset_config.py
 pg_backup.sql
 pgdata/
+backup.dump
