@@ -1,3 +1,6 @@
+CREATE SCHEMA nba_stats
+;
+
 CREATE TABLE nba_stats.boxscore_advanced_team (
     game_id VARCHAR(32),
     team_id VARCHAR(32),
@@ -42,7 +45,7 @@ CREATE TABLE nba_stats.boxscore_advanced_player (
     usage_pct FLOAT,
     pace FLOAT,
     possessions FLOAT,
-    PRIMARY KEY (game_id, team_id)
+    PRIMARY KEY (game_id, person_id)
 )
 ;
 

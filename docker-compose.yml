@@ -34,7 +34,7 @@ services:
       interval: 5s
       retries: 5
     volumes:
-      - postgres-db-volume:/var/lib/postgresql/data
+      - ./pgdata:/var/lib/postgresql/data
 
   airflow-init:
     <<: *airflow-common
@@ -68,6 +68,3 @@ services:
     environment:
       SUPERSET_SECRET_KEY: "${SUPERSET_SECRET_KEY}"
       # SUPERSET_CONFIG_PATH: /superset/superset_config.py
-
-volumes:
-  postgres-db-volume:

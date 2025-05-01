@@ -14,7 +14,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 # Constants
 TEAM = '76ers'
-SEASON = '2023-24'
+SEASON = '2024-25'
 SEASON_TYPE = 'Regular Season'
 
 POSTGRES_HOST = os.getenv('POSTGRES_HOST', 'postgres')
@@ -40,7 +40,7 @@ def get_team_id(team_name: str) -> str:
     return next(team['id'] for team in nba_teams if team['nickname'] == team_name)
 
 
-def fetch_data(team_id: str, conn) -> tuple[pd.DataFrame, pd.DataFrame]:
+def fetch_data(team_id: str, conn) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     gamelog = (
         teamgamelog
         .TeamGameLog(team_id=team_id, season=SEASON, season_type_all_star=SEASON_TYPE)
@@ -66,12 +66,37 @@ def fetch_data(team_id: str, conn) -> tuple[pd.DataFrame, pd.DataFrame]:
         time.sleep(1)
 
     if not team_dfs or not player_dfs:
-        return pd.DataFrame(), pd.DataFrame()
+        return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
 
     team_data = pd.concat(team_dfs, ignore_index=True)
     player_data = pd.concat(player_dfs, ignore_index=True)
     
-    return team_data, player_data
+    return gamelog, team_data, player_data
+
+gamelog_cols_map = {
+    'Team_ID': 'team_id',
+    'Game_ID': 'game_id',
+    'GAME_DATE': 'game_date',
+    'MATCHUP': 'matchup',
+    'WL': 'wl',
+    'W': 'w',
+    'L': 'l',
+    'MIN': 'min',
+    'FGM': 'fgm',
+    'FGA': 'fga',
+    'FG3M': 'fg3m',
+    'FG3A': 'fg3a',
+    'FTM': 'ftm',
+    'FTA': 'fta',
+    'OREB': 'oreb',
+    'DREB': 'dreb',
+    'AST': 'ast',
+    'STL': 'stl',
+    'BLK': 'blk',
+    'TOV': 'tov',
+    'PF': 'pf',
+    'PTS': 'pts'
+}
 
 team_cols_map = {
     'gameId': 'game_id',
@@ -126,26 +151,44 @@ def transform_data(df: pd.DataFrame, cols_map: Dict[str, str]) -> pd.DataFrame:
 
     return df
 
-import psycopg2.extras
-
-def load_to_postgres(cur, df: pd.DataFrame, table_name: str) -> None:
+def load_to_postgres(conn, df: pd.DataFrame, target_table: str, conflict_keys: list[str]) -> None:
     if df.empty:
-        logging.info(f'Dataframe is empty for {table_name}')
+        logging.info(f'Dataframe is empty for {target_table}')
         return
+
+    cur = conn.cursor()
+    temp_table = "temp_merge_staging"
 
     columns = list(df.columns)
     columns_str = ', '.join(columns)
-    values_template = ', '.join(['%s'] * len(columns))
+    update_cols = [col for col in columns if col not in conflict_keys]
 
-    insert_sql = f'''
-        INSERT INTO {table_name} ({columns_str})
-        VALUES ({values_template})
-        ON CONFLICT DO NOTHING;
-    '''
+    cur.execute(f"DROP TABLE IF EXISTS {temp_table}")
+    cur.execute(f"CREATE TEMP TABLE {temp_table} (LIKE {target_table} INCLUDING ALL)")
 
-    psycopg2.extras.execute_batch(cur, insert_sql, df.values.tolist(), page_size=1000)
-    logging.info(f'Successfully staged {len(df)} rows into {table_name}')
+    psycopg2.extras.execute_batch(
+        cur,
+        f"INSERT INTO {temp_table} ({columns_str}) VALUES ({', '.join(['%s'] * len(columns))})",
+        df.values.tolist(),
+        page_size=1000
+    )
 
+    conflict_condition = ' AND '.join([f"T.{k} = S.{k}" for k in conflict_keys])
+    update_str = ', '.join([f"{col} = S.{col}" for col in update_cols])
+    insert_values = ', '.join([f"S.{col}" for col in columns])
+
+    merge_sql = f"""
+        MERGE INTO {target_table} AS T
+        USING {temp_table} AS S
+        ON {conflict_condition}
+        WHEN MATCHED THEN
+            UPDATE SET {update_str}
+        WHEN NOT MATCHED THEN
+            INSERT ({columns_str}) VALUES ({insert_values});
+    """
+    cur.execute(merge_sql)
+    logging.info(f"MERGE complete into {target_table}, rows: {len(df)}")
+    cur.close()
 
 def main():
     logging.info('Starting fetch and load for advanced boxscore stats')
@@ -159,26 +202,25 @@ def main():
 
     try:
         team_id = get_team_id(TEAM)
-        team_df, player_df = fetch_data(team_id, conn)
+        gamelog_df, team_df, player_df = fetch_data(team_id, conn)
 
-        if team_df.empty or player_df.empty:
+        if gamelog_df.empty or team_df.empty or player_df.empty:
             logging.warning('No new data to load.')
             return
 
         # Transform
+        gamelog_df = transform_data(gamelog_df, gamelog_cols_map)
         team_df = transform_data(team_df, team_cols_map)
         player_df = transform_data(player_df, player_cols_map)
 
         # Begin transaction
         with conn:
             with conn.cursor() as cur:
-                # Load team data
-                load_to_postgres(cur, team_df, 'nba_stats.boxscore_advanced_team')
+                load_to_postgres(conn, gamelog_df, 'nba_stats.gamelog', ['team_id','game_id'])
+                load_to_postgres(conn, team_df, 'nba_stats.boxscore_advanced_team', ['game_id', 'team_id'])
+                load_to_postgres(conn, player_df, 'nba_stats.boxscore_advanced_player', ['game_id', 'person_id'])
 
-                # Load player data
-                load_to_postgres(cur, player_df, 'nba_stats.boxscore_advanced_player')
-
-        logging.info('Successfully loaded team and player data')
+        logging.info('Successfully loaded data')
     except Exception as e:
         logging.error(f"Error during fetch/load: {e}")
         conn.rollback()
