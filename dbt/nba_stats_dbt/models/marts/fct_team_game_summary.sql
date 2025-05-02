@@ -22,7 +22,8 @@ SELECT
     league_aggregates.off_rating_bottom10,
     league_aggregates.def_rating_top10,
     league_aggregates.def_rating_avg,
-    league_aggregates.def_rating_bottom10
+    league_aggregates.def_rating_bottom10,
+    ROW_NUMBER() OVER (PARTITION BY gamelog.team_id, gamelog.season_year ORDER BY gamelog.game_date DESC) AS game_num_desc
 FROM gamelog
 INNER JOIN boxscore ON
     gamelog.game_id = boxscore.game_id

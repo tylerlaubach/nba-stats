@@ -1,12 +1,12 @@
 # This docker-compose.yml is based on the official Apache Airflow template (Airflow 3.0)
 # Customized for NBA Stats project with uv, dbt, Superset
 
-version: '3.8'
-
 x-airflow-common: &airflow-common
   build:
     context: .
     dockerfile: Dockerfile
+  env_file:
+    - .env
   environment:
     AIRFLOW__CORE__EXECUTOR: LocalExecutor
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
@@ -23,10 +23,8 @@ x-airflow-common: &airflow-common
 services:
   postgres:
     image: postgres:16
-    environment:
-      POSTGRES_USER: airflow
-      POSTGRES_PASSWORD: airflow
-      POSTGRES_DB: airflow
+    env_file:
+      - .env
     ports:
       - "5432:5432"
     healthcheck:
@@ -65,6 +63,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    env_file:
+      - .env
     environment:
       SUPERSET_SECRET_KEY: "${SUPERSET_SECRET_KEY}"
       # SUPERSET_CONFIG_PATH: /superset/superset_config.py
@@ -74,13 +74,15 @@ services:
       context: .
       dockerfile: Dockerfile
     image: nba-dbt
-    command: tail -f /dev/null
+    # command: tail -f /dev/null
+    entrypoint: [ "tail", "-f", "/dev/null" ]
     working_dir: /home/airflow/dbt
     volumes:
       - ./dbt:/home/airflow/dbt
+    env_file:
+      - .env
     environment:
       DBT_PROFILES_DIR: /home/airflow/dbt
-      PGPASSWORD: airflow
     depends_on:
       postgres:
         condition: service_healthy

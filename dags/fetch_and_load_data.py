@@ -8,7 +8,6 @@ import pandas as pd
 import psycopg2
 import psycopg2.extras
 from pathlib import Path
-from nba_api.stats.static import teams
 from nba_api.stats.endpoints import teamgamelogs, boxscoreadvancedv3
 from config.column_maps import gamelog_cols_map, team_cols_map, player_cols_map
 
