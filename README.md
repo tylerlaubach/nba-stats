@@ -9,4 +9,5 @@ End-to-end data pipeline for collecting, transforming, and analyzing NBA game da
 - **Orchestration**: Apache Airflow
 - **Viz**: Apache Superset
 
+## Dashboard
 ![Dashboard Preview](docs/dashboard_summary.png)
